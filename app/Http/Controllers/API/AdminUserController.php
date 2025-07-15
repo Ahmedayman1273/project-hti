@@ -6,22 +6,25 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Imports\UsersImport;
 use App\Models\User;
-use App\Models\Payment;
-use App\Models\EnrollmentProofRequest;
-use App\Models\CertificateRequest;
+use App\Models\StudentRequest;
 
 class AdminUserController extends Controller
 {
-    // إنشاء مستخدم جديد (طالب أو خريج)
+    // ✅ إنشاء مستخدم جديد (طالب أو خريج)
     public function createUser(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name'         => 'required|string|max:255',
-            'email'        => 'required|email|unique:users,email',
-            'phone_number' => 'required|string|max:20',
-            'type'         => 'required|in:student,graduate',
-            'password'     => 'required|string|min:6',
+            'id'             => 'nullable|integer|unique:users,id',
+            'name'           => 'required|string|max:255',
+            'email'          => 'required|email|unique:users,email',
+            'personal_email' => 'nullable|email',
+            'phone_number'   => 'required|string|max:20',
+            'type'           => 'required|in:student,graduate',
+            'major'          => 'nullable|string|max:255',
+            'password'       => 'nullable|string|min:6',
         ]);
 
         if ($validator->fails()) {
@@ -32,11 +35,14 @@ class AdminUserController extends Controller
         }
 
         $user = User::create([
-            'name'         => $request->name,
-            'email'        => $request->email,
-            'phone_number' => $request->phone_number,
-            'type'         => $request->type,
-            'password'     => Hash::make($request->password),
+            'id'             => $request->id,
+            'name'           => $request->name,
+            'email'          => $request->email,
+            'personal_email' => $request->personal_email,
+            'phone_number'   => $request->phone_number,
+            'type'           => $request->type,
+            'major'          => $request->major ?? 'Computer Science',
+            'password'       => Hash::make($request->password ?? '123456'),
         ]);
 
         return response()->json([
@@ -45,151 +51,94 @@ class AdminUserController extends Controller
         ], 201);
     }
 
-    // عرض كل إيصالات الدفع
-    public function listPayments()
+    // ✅ تغيير نوع المستخدم
+    public function changeUserType(Request $request, $id)
     {
-        $payments = Payment::with('user:id,name,email')->latest()->get();
+        $user = User::find($id);
 
-        return response()->json([
-            'payments' => $payments
-        ]);
-    }
-
-    // عرض إيصال دفع لطالب محدد
-    public function showPayment($id)
-    {
-        $payment = Payment::with('user:id,name,email')->find($id);
-
-        if (!$payment) {
-            return response()->json(['message' => 'Payment not found.'], 404);
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
         }
 
-        return response()->json([
-            'id'         => $payment->id,
-            'status'     => $payment->status,
-            'notes'      => $payment->notes,
-            'image_url'  => asset('storage/' . $payment->image_path),
-            'user'       => $payment->user,
-            'created_at' => $payment->created_at,
+        $request->validate([
+            'type' => 'required|in:student,graduate'
         ]);
+
+        $user->type = $request->type;
+        $user->save();
+
+        return response()->json(['message' => 'User type updated successfully.', 'user' => $user]);
     }
 
-    // عرض جميع طلبات إثبات القيد
-    public function listEnrollmentRequests()
+    // ✅ استيراد مستخدمين من ملف Excel
+    public function importUsersFromExcel(Request $request)
     {
-        $requests = EnrollmentProofRequest::with('user:id,name,email')->latest()->get();
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls'
+        ]);
+
+        try {
+            Excel::import(new UsersImport, $request->file('file'));
+            return response()->json(['message' => 'Users imported successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Import failed', 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    // ✅ عرض جميع طلبات الطلاب والخريجين
+    public function allStudentRequests()
+    {
+        $requests = StudentRequest::with(['user', 'requestType'])
+            ->latest()
+            ->get();
 
         return response()->json([
+            'status' => 'success',
             'requests' => $requests
         ]);
     }
 
-    // تحديث حالة طلب إثبات القيد
-    public function updateEnrollmentRequestStatus(Request $request, $id)
+    // ✅ قبول طلب
+    public function acceptStudentRequest(Request $request, $id)
     {
-        $request->merge([
-            'status' => strtolower(trim($request->status)),
-        ]);
+        $studentRequest = StudentRequest::find($id);
 
-        $request->validate([
-            'status' => 'required|in:approved,rejected',
-            'notes'  => 'nullable|string',
-        ]);
-
-        $record = EnrollmentProofRequest::find($id);
-
-        if (!$record) {
+        if (!$studentRequest) {
             return response()->json(['message' => 'Request not found.'], 404);
         }
 
-        $record->update([
-            'status' => $request->status,
-            'notes'  => $request->notes,
-        ]);
-
-        return response()->json(['message' => 'Request updated successfully.']);
-    }
-
-    // عرض جميع طلبات شهادة التخرج
-    public function listCertificateRequests()
-    {
-        $requests = CertificateRequest::with('user:id,name,email')->latest()->get();
-
-        return response()->json([
-            'requests' => $requests
-        ]);
-    }
-
-    // تحديث حالة طلب شهادة التخرج
-    public function updateCertificateRequestStatus(Request $request, $id)
-    {
-        $request->merge([
-            'status' => strtolower(trim($request->status)),
-        ]);
-
         $request->validate([
-            'status' => 'required|in:approved,rejected',
-            'notes'  => 'nullable|string',
+            'delivery_date' => 'required|date'
         ]);
 
-        $record = CertificateRequest::find($id);
+        $studentRequest->update([
+            'admin_status' => 'accepted',
+            'status'       => 'approved',
+            'notes'        => 'Delivery date: ' . $request->delivery_date
+        ]);
 
-        if (!$record) {
+        return response()->json(['message' => 'Request accepted successfully.']);
+    }
+
+    // ✅ رفض طلب
+    public function rejectStudentRequest(Request $request, $id)
+    {
+        $studentRequest = StudentRequest::find($id);
+
+        if (!$studentRequest) {
             return response()->json(['message' => 'Request not found.'], 404);
         }
 
-        $record->update([
-            'status' => $request->status,
-            'notes'  => $request->notes,
+        $request->validate([
+            'reason' => 'required|string|max:255'
         ]);
 
-        return response()->json(['message' => 'Request updated successfully.']);
-    }
-
-    // إنشاء أدمن جديد
-    public function createAdmin(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:users,email',
-            'password' => 'required|string|min:6',
+        $studentRequest->update([
+            'admin_status' => 'rejected',
+            'status'       => 'rejected',
+            'notes'        => $request->reason
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed.',
-                'errors'  => $validator->errors()
-            ], 422);
-        }
-
-        $admin = User::create([
-            'name'     => $request->name,
-            'email'    => $request->email,
-            'type'     => 'admin',
-            'password' => Hash::make($request->password),
-        ]);
-
-        return response()->json([
-            'message' => 'Admin created successfully.',
-            'admin'   => $admin
-        ], 201);
-    }
-
-    // حذف أدمن مع منع حذف النفس
-    public function deleteAdmin($id)
-    {
-        $admin = User::where('type', 'admin')->find($id);
-
-        if (!$admin) {
-            return response()->json(['message' => 'Admin not found.'], 404);
-        }
-
-        if (auth()->id() == $admin->id) {
-            return response()->json(['message' => 'You cannot delete yourself.'], 403);
-        }
-
-        $admin->delete();
-
-        return response()->json(['message' => 'Admin deleted successfully.']);
+        return response()->json(['message' => 'Request rejected successfully.']);
     }
 }

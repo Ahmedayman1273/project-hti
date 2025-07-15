@@ -3,7 +3,7 @@
 return [
 
     'defaults' => [
-        'guard' => 'web',   // ممكن تخليه 'api' لو تحب، لكن 'web' عادي للمصادقة مع الجلسات
+        'guard' => 'web', // ممكن تخليه api لو المشروع كله API فقط
         'passwords' => 'users',
     ],
 
@@ -13,10 +13,9 @@ return [
             'provider' => 'users',
         ],
 
-        'api' => [                // مهم جداً تضيفه
-            'driver' => 'sanctum',
+        'api' => [
+            'driver' => 'sanctum', // ← تأكد إنها sanctum
             'provider' => 'users',
-            // 'hash' => false,     // ممكن تضيف هذا إذا تحب
         ],
     ],
 

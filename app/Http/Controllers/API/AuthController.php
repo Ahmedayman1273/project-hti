@@ -53,28 +53,28 @@ class AuthController extends Controller
                 ], 403);
             }
 
-            $user->tokens()->delete();
+            // ❌ لا تحذف التوكنات هنا – دا كان بيحصل conflict
             $token = $user->createToken('auth_token')->plainTextToken;
 
-          return response()->json([
-    'status' => 'success',
-    'message' => 'Login successful',
-    'token' => $token,
-    'user'  => [
-        'id'               => $user->id,
-        'name'             => $user->name,
-        'email'            => $user->email,
-        'personal_email'   => $user->personal_email,
-        'type'             => $user->type,
-        'major'            => $user->major,
-        'phone_number'     => $user->phone_number,
-        'profile_photo'    => $user->profile_photo_path
-                                ? asset('storage/' . $user->profile_photo_path)
-                                : asset('images/default_avatar.png'),
-        'created_at'       => $user->created_at,
-        'updated_at'       => $user->updated_at,
-    ]
-]);
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Login successful',
+                'token' => $token,
+                'user'  => [
+                    'id'               => $user->id,
+                    'name'             => $user->name,
+                    'email'            => $user->email,
+                    'personal_email'   => $user->personal_email,
+                    'type'             => $user->type,
+                    'major'            => $user->major,
+                    'phone_number'     => $user->phone_number,
+                    'profile_photo'    => $user->profile_photo_path
+                        ? asset('storage/' . $user->profile_photo_path)
+                        : asset('images/default_avatar.png'),
+                    'created_at'       => $user->created_at,
+                    'updated_at'       => $user->updated_at,
+                ]
+            ]);
 
         } catch (\Throwable $e) {
             \Log::error('LOGIN EXCEPTION: ' . $e->getMessage());
@@ -95,8 +95,7 @@ class AuthController extends Controller
 
     // تحديد إذا كان الطلب من الويب
     private function isWeb(Request $request): bool
-{
-    return strtolower($request->header('X-From')) === 'web';
-}
-
+    {
+        return strtolower($request->header('X-From')) === 'web';
+    }
 }

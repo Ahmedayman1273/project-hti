@@ -38,18 +38,9 @@ Route::prefix('password')->middleware('throttle:5,1')->group(function () {
 });
 
 
-// ✅ [ إثبات القيد ]
-Route::middleware('auth:sanctum')->prefix('enrollment-proof')->group(function () {
-    Route::post('/request', [EnrollmentProofRequestController::class, 'requestProof']);
-    Route::get('/status', [EnrollmentProofRequestController::class, 'checkStatus']);
-});
 
 
-// ✅ [ شهادة التخرج ]
-Route::middleware('auth:sanctum')->prefix('certificate')->group(function () {
-    Route::post('/request', [CertificateRequestController::class, 'requestCertificate']);
-    Route::get('/status', [CertificateRequestController::class, 'checkStatus']);
-});
+
 
 
 // ✅ [ الأخبار News ]
@@ -93,32 +84,41 @@ Route::middleware('auth:sanctum')->prefix('profile')->group(function () {
 });
 
 
-// ✅ [ الدفع Payments ]
-Route::middleware('auth:sanctum')->prefix('payments')->group(function () {
-    Route::post('/upload', [PaymentController::class, 'upload']);
-    Route::get('/mine', [PaymentController::class, 'myPayment']);
+use App\Http\Controllers\API\StudentRequestController;
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/student-requests', [StudentRequestController::class, 'index']);
+    Route::post('/student-requests', [StudentRequestController::class, 'store']);
+    Route::delete('/student-requests/{id}', [StudentRequestController::class, 'destroy']);
 });
 
 
-// ✅ [ لوحة تحكم الأدمن Admin Panel ]
-Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
+use App\Http\Controllers\API\RequestController;
 
-    // المستخدمين
-    Route::post('/create-user', [AdminUserController::class, 'createUser']);
-
-    // الأدمنز
-    Route::post('/create-admin', [AdminUserController::class, 'createAdmin']);
-    Route::delete('/delete-admin/{id}', [AdminUserController::class, 'deleteAdmin']);
-
-    // الدفع
-    Route::get('/payments', [AdminUserController::class, 'listPayments']);
-    Route::get('/payments/{id}', [AdminUserController::class, 'showPayment']);
-
-    // إثبات القيد
-    Route::get('/enrollment-requests', [AdminUserController::class, 'listEnrollmentRequests']);
-    Route::put('/enrollment-requests/{id}', [AdminUserController::class, 'updateEnrollmentRequestStatus']);
-
-    // شهادات التخرج
-    Route::get('/certificate-requests', [AdminUserController::class, 'listCertificateRequests']);
-    Route::put('/certificate-requests/{id}', [AdminUserController::class, 'updateCertificateRequestStatus']);
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/requests', [RequestController::class, 'index']);
+    Route::post('/requests', [RequestController::class, 'store']);
+    Route::put('/requests/{id}', [RequestController::class, 'update']);
+    Route::delete('/requests/{id}', [RequestController::class, 'destroy']);
 });
+
+
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::post('/admin/users', [AdminUserController::class, 'createUser']);
+    Route::patch('/admin/users/{id}/type', [AdminUserController::class, 'changeUserType']);
+    Route::post('/admin/import-users', [AdminUserController::class, 'importUsersFromExcel']);
+
+    Route::get('/admin/student-requests', [AdminUserController::class, 'allStudentRequests']);
+    Route::patch('/admin/student-requests/{id}/accept', [AdminUserController::class, 'acceptStudentRequest']);
+    Route::patch('/admin/student-requests/{id}/reject', [AdminUserController::class, 'rejectStudentRequest']);
+});
+
+
+Route::middleware('auth:api')->group(function () {
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+});
+
+
+

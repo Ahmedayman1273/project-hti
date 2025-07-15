@@ -11,39 +11,27 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    /**
-     * الأعمدة القابلة للتعديل من خلال الـ mass assignment
-     * حالياً فقط profile_image يمكن تعديله من المستخدم نفسه
-     */
     protected $fillable = [
-    'name',
-    'email',
-    'password',
-    'type',
-    'major',
-    'phone_number',
-    'personal_email',
-    'profile_photo_path', // ← لازم تضيفه هنا
-];
+        'name',
+        'email',
+        'password',
+        'type',
+        'major',
+        'phone_number',
+        'personal_email',
+        'profile_photo_path',
+    ];
 
-
-    /**
-     * الأعمدة اللي يتم إخفاؤها عند تحويل البيانات إلى JSON
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * التحويلات التلقائية للأنواع في الأعمدة
-     */
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
 
-    // علاقات المستخدم
-
+    // العلاقات
     public function posts()
     {
         return $this->hasMany(Post::class, 'posted_by');
@@ -63,5 +51,4 @@ class User extends Authenticatable
     {
         return $this->hasMany(EnrollmentProofRequest::class);
     }
-
 }
